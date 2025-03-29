@@ -6,17 +6,14 @@
     <title>Бег/Ходьба</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Стили остаются без изменений */
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 16px;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
             height: 100vh;
             box-sizing: border-box;
-        }
-        .timer-container {
             text-align: center;
         }
         #timer {
@@ -24,70 +21,80 @@
             font-weight: bold;
             margin: 30px 0;
             color: var(--tg-theme-link-color, #2481cc);
+            font-feature-settings: "tnum";
         }
         #status {
             font-size: 1.5rem;
             margin-bottom: 30px;
+            font-weight: 500;
         }
         .buttons {
             display: grid;
             gap: 12px;
+            max-width: 300px;
+            margin: 0 auto;
         }
         button {
-            padding: 15px;
+            padding: 14px;
             font-size: 1.1rem;
             border: none;
             border-radius: 10px;
             background: var(--tg-theme-button-color, #2481cc);
             color: var(--tg-theme-button-text-color, #ffffff);
         }
+        button:disabled {
+            opacity: 0.6;
+        }
+        .running-bg {
+            background: var(--tg-theme-secondary-bg-color, #f3f3f3) !important;
+        }
     </style>
 </head>
 <body>
-    <div class="timer-container">
-        <div id="status">Готово</div>
-        <div id="timer">04:00</div>
-        <div class="buttons">
-            <button id="startBtn">Старт</button>
-            <button id="pauseBtn" disabled>Пауза</button>
-            <button id="skipBtn" disabled>Пропустить</button>
-        </div>
+    <div id="status">Готово</div>
+    <div id="timer">04:00</div>
+    <div class="buttons">
+        <button id="startBtn">Старт</button>
+        <button id="pauseBtn" disabled>Пауза</button>
+        <button id="skipBtn" disabled>Пропустить</button>
     </div>
 
     <script>
-        const Telegram = window.Telegram.WebApp;
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
         
-        // Инициализация приложения
-        Telegram.expand();
-        Telegram.enableClosingConfirmation();
-        
-        // Элементы управления
+        // Элементы интерфейса
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const skipBtn = document.getElementById('skipBtn');
-
+        
         // Настройки таймера
-        const RUNNING_TIME = 4 * 60; // 4 минуты бега
-        const WALKING_TIME = 1 * 60; // 1 минута ходьбы
+        const RUNNING_TIME = 4 * 60; // 4 минуты
+        const WALKING_TIME = 1 * 60; // 1 минута
         let timeLeft = RUNNING_TIME;
         let timerId = null;
         let isRunning = false;
         let isRunningPhase = true;
-
-        // Обновление отображения
+        
+        // Обновление интерфейса
         function updateDisplay() {
             const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
             const seconds = (timeLeft % 60).toString().padStart(2, '0');
             timerDisplay.textContent = `${minutes}:${seconds}`;
             
             statusDisplay.textContent = isRunningPhase ? 'Бег' : 'Ходьба';
-            document.body.style.backgroundColor = isRunningPhase 
-                ? 'var(--tg-theme-secondary-bg-color, #f0f0f0)' 
-                : 'var(--tg-theme-bg-color, #ffffff)';
+            document.body.classList.toggle('running-bg', isRunningPhase);
+            
+            // Вибрация при переключении
+            if (timeLeft <= 0 && tg.platform !== 'unknown') {
+                tg.HapticFeedback.impactOccurred('light');
+            }
         }
-
+        
         // Запуск таймера
         function startTimer() {
             if (!isRunning) {
@@ -106,7 +113,7 @@
                 skipBtn.disabled = false;
             }
         }
-
+        
         // Пауза
         function pauseTimer() {
             if (isRunning) {
@@ -117,37 +124,32 @@
                 skipBtn.disabled = true;
             }
         }
-
-        // Переключение фазы
+        
+        // Переключение режима
         function switchPhase() {
-            clearInterval(timerId);
+            const wasRunning = isRunning;
+            pauseTimer();
+            
             isRunningPhase = !isRunningPhase;
             timeLeft = isRunningPhase ? RUNNING_TIME : WALKING_TIME;
             updateDisplay();
             
-            if (isRunning) {
+            if (wasRunning) {
                 startTimer();
             }
         }
-
-        // Инициализация событий
+        
+        // Назначение обработчиков
         startBtn.addEventListener('click', startTimer);
         pauseBtn.addEventListener('click', pauseTimer);
         skipBtn.addEventListener('click', switchPhase);
-
-        // Первоначальная настройка
+        
+        // Инициализация
         updateDisplay();
-
-        // Обработчик изменения размера окна
-        Telegram.onEvent('viewportChanged', () => {
-            if (Telegram.isExpanded) {
-                Telegram.enableClosingConfirmation();
-            }
-        });
-
-        // Проверка окружения
-        if (!Telegram.initData) {
-            document.body.innerHTML = '<h3>Пожалуйста, используйте приложение через Telegram</h3>';
+        
+        // Проверка запуска в Telegram
+        if (!tg.initData) {
+            document.body.innerHTML = '<h3>Запустите через Telegram</h3>';
         }
     </script>
 </body>
