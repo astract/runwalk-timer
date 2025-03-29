@@ -6,6 +6,7 @@
     <title>Бег/Ходьба</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Стили остаются без изменений */
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0;
@@ -15,28 +16,23 @@
             height: 100vh;
             box-sizing: border-box;
         }
-        
         .timer-container {
             text-align: center;
         }
-        
         #timer {
             font-size: 3.5rem;
             font-weight: bold;
             margin: 30px 0;
             color: var(--tg-theme-link-color, #2481cc);
         }
-        
         #status {
             font-size: 1.5rem;
             margin-bottom: 30px;
         }
-        
         .buttons {
             display: grid;
             gap: 12px;
         }
-        
         button {
             padding: 15px;
             font-size: 1.1rem;
@@ -65,37 +61,93 @@
         Telegram.expand();
         Telegram.enableClosingConfirmation();
         
+        // Элементы управления
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const skipBtn = document.getElementById('skipBtn');
-        
-        const runningTime = 4 * 60;
-        const walkingTime = 1 * 60;
-        let timeLeft = runningTime;
-        let timerId;
+
+        // Настройки таймера
+        const RUNNING_TIME = 4 * 60; // 4 минуты бега
+        const WALKING_TIME = 1 * 60; // 1 минута ходьбы
+        let timeLeft = RUNNING_TIME;
+        let timerId = null;
         let isRunning = false;
         let isRunningPhase = true;
-        
-        // Остальной код таймера из предыдущего примера...
-        // (функции updateDisplay, startTimer, pauseTimer, switchTimer)
-        
-        // Добавляем обработчик закрытия
+
+        // Обновление отображения
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const seconds = (timeLeft % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+            
+            statusDisplay.textContent = isRunningPhase ? 'Бег' : 'Ходьба';
+            document.body.style.backgroundColor = isRunningPhase 
+                ? 'var(--tg-theme-secondary-bg-color, #f0f0f0)' 
+                : 'var(--tg-theme-bg-color, #ffffff)';
+        }
+
+        // Запуск таймера
+        function startTimer() {
+            if (!isRunning) {
+                isRunning = true;
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        switchPhase();
+                    }
+                }, 1000);
+                
+                startBtn.disabled = true;
+                pauseBtn.disabled = false;
+                skipBtn.disabled = false;
+            }
+        }
+
+        // Пауза
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerId);
+                isRunning = false;
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                skipBtn.disabled = true;
+            }
+        }
+
+        // Переключение фазы
+        function switchPhase() {
+            clearInterval(timerId);
+            isRunningPhase = !isRunningPhase;
+            timeLeft = isRunningPhase ? RUNNING_TIME : WALKING_TIME;
+            updateDisplay();
+            
+            if (isRunning) {
+                startTimer();
+            }
+        }
+
+        // Инициализация событий
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        skipBtn.addEventListener('click', switchPhase);
+
+        // Первоначальная настройка
+        updateDisplay();
+
+        // Обработчик изменения размера окна
         Telegram.onEvent('viewportChanged', () => {
             if (Telegram.isExpanded) {
                 Telegram.enableClosingConfirmation();
             }
         });
-        
-        // Проверяем, что мы в Telegram
-        if (typeof Telegram !== 'undefined' && Telegram.initData) {
-            startBtn.addEventListener('click', startTimer);
-            pauseBtn.addEventListener('click', pauseTimer);
-            skipBtn.addEventListener('click', switchTimer);
-            updateDisplay();
-        } else {
-            document.body.innerHTML = '<h3>Запускайте это приложение только через Telegram</h3>';
+
+        // Проверка окружения
+        if (!Telegram.initData) {
+            document.body.innerHTML = '<h3>Пожалуйста, используйте приложение через Telegram</h3>';
         }
     </script>
 </body>
