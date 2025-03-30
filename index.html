@@ -50,6 +50,10 @@
         #resetBtn {
             background: var(--tg-theme-destructive-button-color, #ff3b30);
         }
+        #settingsBtn {
+            background: var(--tg-theme-secondary-bg-color, #f3f3f3);
+            color: var(--tg-theme-text-color, #000000);
+        }
         .settings-panel {
             margin: 20px auto;
             padding: 15px;
@@ -60,9 +64,10 @@
         .settings-input {
             width: 100%;
             padding: 8px;
-            margin: 5px 0;
+            margin: 8px 0;
             border: 1px solid #ccc;
             border-radius: 5px;
+            font-size: 1rem;
         }
         .running-bg {
             background: var(--tg-theme-secondary-bg-color, #f3f3f3) !important;
@@ -73,16 +78,26 @@
         .hidden {
             display: none;
         }
+        .label {
+            display: block;
+            margin: 10px 0 5px;
+            text-align: left;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
     <div id="status">Готово</div>
     <div id="timer">04:00</div>
     
-    <div class="settings-panel">
+    <div class="settings-panel hidden">
+        <span class="label">Время бега (минуты):</span>
         <input type="number" id="runningTime" class="settings-input" placeholder="Минуты бега" min="1" value="4">
+        
+        <span class="label">Время ходьбы (минуты):</span>
         <input type="number" id="walkingTime" class="settings-input" placeholder="Минуты ходьбы" min="1" value="1">
-        <button onclick="saveSettings()">Сохранить настройки</button>
+        
+        <button onclick="saveSettings()" style="margin-top: 15px;">Сохранить</button>
     </div>
 
     <div class="buttons">
@@ -90,29 +105,31 @@
         <button id="pauseBtn" disabled>Пауза</button>
         <button id="skipBtn" disabled>Пропустить</button>
         <button id="resetBtn">Сброс</button>
-        <button onclick="toggleSettings()">Настройки</button>
+        <button id="settingsBtn" onclick="toggleSettings()">Настройки</button>
     </div>
 
     <script>
+        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.enableClosingConfirmation();
         
-        // Элементы
+        // Элементы интерфейса
         const timerDisplay = document.getElementById('timer');
         const statusDisplay = document.getElementById('status');
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const skipBtn = document.getElementById('skipBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
         const runningInput = document.getElementById('runningTime');
         const walkingInput = document.getElementById('walkingTime');
         const settingsPanel = document.querySelector('.settings-panel');
 
-        // Настройки по умолчанию
+        // Настройки таймера
         let settings = {
-            runningTime: 4 * 60,
-            walkingTime: 1 * 60
+            runningTime: 4 * 60, // 4 минуты по умолчанию
+            walkingTime: 1 * 60   // 1 минута по умолчанию
         };
 
         // Состояние таймера
@@ -120,14 +137,17 @@
         let timerId = null;
         let isRunning = false;
         let isRunningPhase = true;
+        let isSettingsVisible = false;
 
         // Загрузка сохраненных настроек
         function loadSettings() {
             const savedSettings = localStorage.getItem('timerSettings');
-            if(savedSettings) {
+            if (savedSettings) {
                 settings = JSON.parse(savedSettings);
                 runningInput.value = settings.runningTime / 60;
                 walkingInput.value = settings.walkingTime / 60;
+                timeLeft = isRunningPhase ? settings.runningTime : settings.walkingTime;
+                updateDisplay();
             }
         }
 
@@ -136,33 +156,118 @@
             const newRunning = parseInt(runningInput.value) * 60;
             const newWalking = parseInt(walkingInput.value) * 60;
             
-            if(newRunning > 0 && newWalking > 0) {
+            if (newRunning > 0 && newWalking > 0) {
                 settings.runningTime = newRunning;
                 settings.walkingTime = newWalking;
                 localStorage.setItem('timerSettings', JSON.stringify(settings));
-                resetTimer();
+                
+                // Обновляем таймер, если он в начальном состоянии
+                if (!isRunning && isRunningPhase) {
+                    timeLeft = settings.runningTime;
+                    updateDisplay();
+                }
+                
                 toggleSettings();
             } else {
-                alert('Введите корректные значения (минимум 1 минута)');
+                alert('Пожалуйста, введите значения больше 0');
             }
         }
 
         // Переключение панели настроек
         function toggleSettings() {
+            isSettingsVisible = !isSettingsVisible;
             settingsPanel.classList.toggle('hidden');
+            
+            if (isSettingsVisible) {
+                pauseTimer();
+                settingsBtn.textContent = 'Закрыть';
+            } else {
+                settingsBtn.textContent = 'Настройки';
+            }
         }
 
-        // Остальные функции таймера (startTimer, pauseTimer, switchPhase, resetTimer) 
-        // остаются аналогичными предыдущей версии, но используют settings.runningTime 
-        // и settings.walkingTime вместо констант
+        // Обновление отображения таймера
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const seconds = (timeLeft % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+            
+            statusDisplay.textContent = isRunningPhase ? 'Бег' : 'Ходьба';
+            document.body.className = isRunningPhase ? 'running-bg' : 'walking-bg';
+            
+            // Вибрация при переключении
+            if (timeLeft <= 0 && tg.platform !== 'unknown') {
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
 
-        // Инициализация
+        // Запуск таймера
+        function startTimer() {
+            if (!isRunning && !isSettingsVisible) {
+                isRunning = true;
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        switchPhase();
+                    }
+                }, 1000);
+                
+                startBtn.disabled = true;
+                pauseBtn.disabled = false;
+                skipBtn.disabled = false;
+                settingsBtn.disabled = true;
+            }
+        }
+
+        // Пауза таймера
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerId);
+                isRunning = false;
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                skipBtn.disabled = true;
+                settingsBtn.disabled = false;
+            }
+        }
+
+        // Переключение между бегом и ходьбой
+        function switchPhase() {
+            const wasRunning = isRunning;
+            pauseTimer();
+            
+            isRunningPhase = !isRunningPhase;
+            timeLeft = isRunningPhase ? settings.runningTime : settings.walkingTime;
+            updateDisplay();
+            
+            if (wasRunning) {
+                startTimer();
+            }
+        }
+
+        // Сброс таймера
+        function resetTimer() {
+            pauseTimer();
+            isRunningPhase = true;
+            timeLeft = settings.runningTime;
+            updateDisplay();
+        }
+
+        // Инициализация событий
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        skipBtn.addEventListener('click', switchPhase);
+        resetBtn.addEventListener('click', resetTimer);
+
+        // Загрузка настроек при старте
         loadSettings();
         updateDisplay();
         
         // Проверка запуска в Telegram
         if (!tg.initData) {
-            document.body.innerHTML = '<h3>Запустите через Telegram</h3>';
+            document.body.innerHTML = '<h3>Пожалуйста, откройте приложение через Telegram</h3>';
         }
     </script>
 </body>
