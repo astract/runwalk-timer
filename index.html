@@ -53,7 +53,7 @@
             background: var(--tg-theme-secondary-bg-color, #f3f3f3) !important;
         }
         .walking-bg {
-            background: #AAFFAE !important; /* Зелёный фон для ходьбы */
+            background: #AAFFAE !important; /* Ваш зелёный цвет */
         }
     </style>
 </head>
@@ -96,8 +96,6 @@
             timerDisplay.textContent = `${minutes}:${seconds}`;
             
             statusDisplay.textContent = isRunningPhase ? 'Бег' : 'Ходьба';
-            
-            // Устанавливаем фон в зависимости от фазы
             document.body.className = isRunningPhase ? 'running-bg' : 'walking-bg';
             
             // Вибрация при переключении
