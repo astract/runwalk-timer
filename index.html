@@ -15,6 +15,7 @@
             height: 100vh;
             box-sizing: border-box;
             text-align: center;
+            transition: background 0.3s ease;
         }
         #timer {
             font-size: 3.5rem;
@@ -45,8 +46,14 @@
         button:disabled {
             opacity: 0.6;
         }
+        #resetBtn {
+            background: var(--tg-theme-destructive-button-color, #ff3b30);
+        }
         .running-bg {
             background: var(--tg-theme-secondary-bg-color, #f3f3f3) !important;
+        }
+        .walking-bg {
+            background: #E8F5E9 !important; /* Зелёный фон для ходьбы */
         }
     </style>
 </head>
@@ -57,6 +64,7 @@
         <button id="startBtn">Старт</button>
         <button id="pauseBtn" disabled>Пауза</button>
         <button id="skipBtn" disabled>Пропустить</button>
+        <button id="resetBtn">Сброс</button>
     </div>
 
     <script>
@@ -71,10 +79,11 @@
         const startBtn = document.getElementById('startBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const skipBtn = document.getElementById('skipBtn');
+        const resetBtn = document.getElementById('resetBtn');
         
         // Настройки таймера
-        const RUNNING_TIME = 4 * 60; // 4 минуты
-        const WALKING_TIME = 1 * 60; // 1 минута
+        const RUNNING_TIME = 4 * 60; // 4 минуты бега
+        const WALKING_TIME = 1 * 60; // 1 минута ходьбы
         let timeLeft = RUNNING_TIME;
         let timerId = null;
         let isRunning = false;
@@ -87,7 +96,9 @@
             timerDisplay.textContent = `${minutes}:${seconds}`;
             
             statusDisplay.textContent = isRunningPhase ? 'Бег' : 'Ходьба';
-            document.body.classList.toggle('running-bg', isRunningPhase);
+            
+            // Устанавливаем фон в зависимости от фазы
+            document.body.className = isRunningPhase ? 'running-bg' : 'walking-bg';
             
             // Вибрация при переключении
             if (timeLeft <= 0 && tg.platform !== 'unknown') {
@@ -139,10 +150,19 @@
             }
         }
         
+        // Сброс таймера
+        function resetTimer() {
+            pauseTimer();
+            isRunningPhase = true;
+            timeLeft = RUNNING_TIME;
+            updateDisplay();
+        }
+        
         // Назначение обработчиков
         startBtn.addEventListener('click', startTimer);
         pauseBtn.addEventListener('click', pauseTimer);
         skipBtn.addEventListener('click', switchPhase);
+        resetBtn.addEventListener('click', resetTimer);
         
         // Инициализация
         updateDisplay();
